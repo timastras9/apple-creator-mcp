@@ -57,48 +57,61 @@ function c16(colorStr) {
 
 const PRESETS = {
   "darpa": {
-    bg: "{0, 8, 20}",
-    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
-    subtitle: { color: "{100, 180, 255}", font: "Helvetica Neue Light", size: 24 },
-    body: { color: "{200, 210, 225}", font: "Helvetica Neue", size: 20 },
-    accent: "{0, 120, 255}",
-    accentAlt: "{255, 60, 60}",
+    theme: "White",
+    headerBar: "{15, 40, 65}",
+    headerBarHeight: 80,
+    title: { color: "{210, 75, 55}", font: "Helvetica Neue Bold", size: 36 },
+    subtitle: { color: "{30, 60, 110}", font: "Helvetica Neue Bold", size: 28 },
+    body: { color: "{30, 55, 85}", font: "Helvetica Neue", size: 18 },
+    accent: "{15, 40, 65}",
+    accentAlt: "{210, 75, 55}",
+    bottomStripe: true,
     transition: "dissolve",
   },
   "nsi": {
-    bg: "{10, 12, 30}",
+    theme: "Black",
+    headerBar: null,
     title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
     subtitle: { color: "{138, 92, 246}", font: "Helvetica Neue Light", size: 24 },
     body: { color: "{190, 195, 220}", font: "Helvetica Neue", size: 20 },
     accent: "{138, 92, 246}",
     accentAlt: "{0, 210, 180}",
+    bottomStripe: false,
     transition: "magic move",
   },
   "intel": {
-    bg: "{15, 15, 15}",
+    theme: "Black",
+    headerBar: null,
     title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
     subtitle: { color: "{0, 200, 150}", font: "Helvetica Neue Medium", size: 24 },
     body: { color: "{180, 185, 195}", font: "Helvetica Neue", size: 20 },
     accent: "{0, 200, 150}",
     accentAlt: "{255, 180, 0}",
+    bottomStripe: false,
     transition: "push",
   },
   "executive": {
-    bg: "{25, 30, 45}",
-    title: { color: "{255, 255, 255}", font: "Georgia Bold", size: 42 },
-    subtitle: { color: "{200, 175, 120}", font: "Georgia", size: 22 },
-    body: { color: "{200, 205, 215}", font: "Helvetica Neue", size: 20 },
-    accent: "{200, 175, 120}",
-    accentAlt: "{100, 130, 200}",
+    theme: "White",
+    headerBar: "{25, 30, 55}",
+    headerBarHeight: 75,
+    title: { color: "{255, 255, 255}", font: "Georgia Bold", size: 34 },
+    subtitle: { color: "{30, 45, 75}", font: "Georgia", size: 22 },
+    body: { color: "{40, 45, 60}", font: "Helvetica Neue", size: 18 },
+    accent: "{25, 30, 55}",
+    accentAlt: "{180, 150, 90}",
+    bottomStripe: false,
     transition: "fade through color",
   },
   "military": {
-    bg: "{20, 25, 15}",
-    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
-    subtitle: { color: "{140, 180, 80}", font: "Helvetica Neue Medium", size: 24 },
-    body: { color: "{190, 200, 180}", font: "Helvetica Neue", size: 20 },
-    accent: "{140, 180, 80}",
-    accentAlt: "{220, 180, 60}",
+    theme: "White",
+    headerBar: "{25, 45, 30}",
+    headerBarHeight: 75,
+    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 36 },
+    subtitle: { color: "{35, 60, 40}", font: "Helvetica Neue Bold", size: 24 },
+    body: { color: "{40, 50, 40}", font: "Helvetica Neue", size: 18 },
+    accent: "{25, 45, 30}",
+    accentAlt: "{180, 150, 50}",
+    bottomStripe: true,
     transition: "push",
   },
 };
@@ -113,7 +126,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
-        preset: { type: "string", enum: ["darpa", "nsi", "intel", "executive", "military"], description: "Visual preset. darpa=blue/red on black, nsi=purple/cyan on deep navy, intel=green/gold on black, executive=gold/blue on dark navy, military=olive/yellow on dark green" },
+        preset: { type: "string", enum: ["darpa", "nsi", "intel", "executive", "military"], description: "Visual preset. darpa=ERIS format with navy header bar, red titles, white bg, bottom stripe (matches real DARPA submissions). nsi=purple/cyan on dark (NSI Corp brand). intel=green/gold on dark. executive=navy header, gold accents on white. military=olive header on white." },
         slides: {
           type: "array",
           items: {
@@ -136,8 +149,45 @@ const tools = [
     },
   },
   {
+    name: "keynote_darpa_submission",
+    description: "Create a complete DARPA ERIS submission deck in ONE call. You provide company info and the 4 quad chart sections — the tool auto-generates ALL slides: (1) Submission Info, (2) Company Introduction, (3) Quad Chart with 4 teal boxes, (4) Solution Overview & White Space answers. The quad chart content IS the source of truth — all other slides are derived from it. Use this for any DARPA/DoD proposal.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        company: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Company name" },
+            programName: { type: "string", description: "Program/product name (e.g. NEMESIS)" },
+            address: { type: "string" },
+            uei: { type: "string", description: "Unique Entity Identifier" },
+            poc: { type: "string", description: "Point of Contact name" },
+            email: { type: "string" },
+            phone: { type: "string" },
+          },
+          required: ["name", "programName", "poc", "email"],
+        },
+        introduction: { type: "string", description: "Company/founder introduction paragraph (2-3 paragraphs). Personal and authentic — who you are, why you built this, why DARPA." },
+        quadChart: {
+          type: "object",
+          properties: {
+            problem: { type: "string", description: "Defining the Problem & Current State of the Art — what is broken today, why existing solutions fail" },
+            advancing: { type: "string", description: "Advancing the State of the Art — what your solution does that nobody else can, the breakthrough" },
+            team: { type: "string", description: "Team Capability (Key Personnel) — who is on the team, their experience, why they are the right people" },
+            market: { type: "string", description: "Defense and/or Commercial Market Use Case/Impact — how this helps DoD and commercial customers" },
+          },
+          required: ["problem", "advancing", "team", "market"],
+        },
+        solutionOverview: { type: "string", description: "What We Are Doing — concise description of the technical approach (optional, auto-derived from quad chart if omitted)" },
+        whiteSpace: { type: "string", description: "DARPA White Space — the gap in current capabilities that your solution fills (optional, auto-derived from quad chart if omitted)" },
+        savePath: { type: "string", description: "Path to save .key file" },
+      },
+      required: ["company", "introduction", "quadChart"],
+    },
+  },
+  {
     name: "keynote_create",
-    description: "Create a new blank Keynote presentation. For professional presentations, use keynote_build_deck instead.",
+    description: "Create a new blank Keynote presentation. For professional presentations, use keynote_build_deck or keynote_darpa_submission instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -739,14 +789,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "keynote_build_deck": {
         const preset = PRESETS[args.preset] || PRESETS.darpa;
+        const hasHeader = !!preset.headerBar;
+        const hBarH = preset.headerBarHeight || 80;
+        const contentStartY = hasHeader ? hBarH + 20 : 20;
+        const theme = preset.theme || "Black";
 
-        // Create presentation with Black theme (dark base)
         osa(`tell application "${APP.keynote}"
-          activate
-          set newDoc to make new document with properties {document theme:theme "Black"}
-        end tell`);
+activate
+set newDoc to make new document with properties {document theme:theme "${theme}"}
+end tell`);
 
-        // Build each slide
         for (let i = 0; i < args.slides.length; i++) {
           const slide = args.slides[i];
           const layout = slide.layout || "content";
@@ -755,176 +807,423 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!isFirst) {
             osa(`tell application "${APP.keynote}"
 tell front document
-  make new slide at end with properties {base layout:slide layout "Blank"}
+make new slide at end with properties {base layout:slide layout "Blank"}
 end tell
 end tell`);
           } else {
             try {
               osa(`tell application "${APP.keynote}"
 tell front document
-  set base layout of slide 1 to slide layout "Blank"
+set base layout of slide 1 to slide layout "Blank"
 end tell
 end tell`);
             } catch {}
           }
 
-          const slideRef = isFirst ? "slide 1" : "last slide";
+          const sr = isFirst ? "slide 1" : "last slide";
 
-          // Accent bar at top
-          if (layout !== "image-full") {
+          // ── HEADER BAR (DARPA/executive/military style) ──
+          if (hasHeader && layout !== "image-full") {
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set bar to make new shape with properties {position:{0, 0}, width:1024, height:4}
-                  set object text of bar to ""
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set hbar to make new shape with properties {position:{0, 0}, width:1024, height:${hBarH}}
+set object text of hbar to ""
+end tell
+end tell
+end tell`);
+
+            // Title goes INSIDE the header bar
+            if (slide.title) {
+              const titleSize = layout === "title" ? 42 : preset.title.size;
+              const titleY = layout === "title" ? Math.floor(hBarH / 2 - 25) : 20;
+              osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set t to make new text item with properties {object text:"${escAS(slide.title)}", position:{40, ${titleY}}, width:944, height:55}
+set font of object text of t to "${preset.title.font}"
+set size of object text of t to ${titleSize}
+end tell
+end tell
+end tell`);
+              osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(preset.title.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
+            }
           }
 
-          // Title
-          if (slide.title) {
-            const titlePreset = preset.title;
-            const titleY = layout === "title" ? 220 : (layout === "section" ? 250 : 60);
-            const titleSize = layout === "title" ? 56 : (layout === "section" ? 48 : titlePreset.size);
+          // ── DARK THEME TITLE (NSI/intel style — no header bar) ──
+          if (!hasHeader && slide.title) {
+            const titleY = layout === "title" ? 250 : (layout === "section" ? 280 : 40);
+            const titleSize = layout === "title" ? 56 : (layout === "section" ? 48 : preset.title.size);
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set t to make new text item with properties {object text:"${escAS(slide.title)}", position:{80, ${titleY}}, width:864, height:80}
-                  set font of object text of t to "${titlePreset.font}"
-                  set size of object text of t to ${titleSize}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set t to make new text item with properties {object text:"${escAS(slide.title)}", position:{80, ${titleY}}, width:864, height:80}
+set font of object text of t to "${preset.title.font}"
+set size of object text of t to ${titleSize}
+end tell
+end tell
+end tell`);
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set color of object text of last text item to {${c16(titlePreset.color).slice(1,-1)}}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(preset.title.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
           }
 
-          // Subtitle
+          // ── SUBTITLE ──
           if (slide.subtitle) {
-            const subPreset = preset.subtitle;
-            const subY = layout === "title" ? 300 : (layout === "section" ? 320 : 140);
+            const subY = hasHeader
+              ? (layout === "title" ? hBarH + 40 : contentStartY)
+              : (layout === "title" ? 340 : (layout === "section" ? 350 : 130));
+            const subFont = hasHeader ? preset.subtitle.font : preset.subtitle.font;
+            const subSize = layout === "title" ? preset.subtitle.size + 4 : preset.subtitle.size;
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set s to make new text item with properties {object text:"${escAS(slide.subtitle)}", position:{80, ${subY}}, width:864, height:50}
-                  set font of object text of s to "${subPreset.font}"
-                  set size of object text of s to ${subPreset.size}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set s to make new text item with properties {object text:"${escAS(slide.subtitle)}", position:{${hasHeader ? 40 : 80}, ${subY}}, width:${hasHeader ? 944 : 864}, height:45}
+set font of object text of s to "${subFont}"
+set size of object text of s to ${subSize}
+end tell
+end tell
+end tell`);
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set color of object text of last text item to {${c16(subPreset.color).slice(1,-1)}}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(preset.subtitle.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
           }
 
-          // Bullets
+          // ── BULLETS ──
           if (slide.bullets && slide.bullets.length > 0) {
-            const bodyPreset = preset.body;
-            const bulletText = slide.bullets.map(b => "  ▸  " + b).join("\\n");
-            const bulletY = slide.subtitle ? 200 : 160;
+            const bp = preset.body;
+            const marker = hasHeader ? "•" : "▸";
+            const bulletText = slide.bullets.map(b => "  " + marker + "  " + b).join("\\n");
+            const bulletY = hasHeader
+              ? (slide.subtitle ? contentStartY + 55 : contentStartY + 20)
+              : (slide.subtitle ? 200 : 160);
+            const bulletX = hasHeader ? 40 : 80;
+            const bulletW = hasHeader ? 944 : 864;
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set b to make new text item with properties {object text:"${escAS(bulletText)}", position:{80, ${bulletY}}, width:864, height:${Math.min(slide.bullets.length * 45 + 30, 480)}}
-                  set font of object text of b to "${bodyPreset.font}"
-                  set size of object text of b to ${bodyPreset.size}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set b to make new text item with properties {object text:"${escAS(bulletText)}", position:{${bulletX}, ${bulletY}}, width:${bulletW}, height:${Math.min(slide.bullets.length * 40 + 30, 500)}}
+set font of object text of b to "${bp.font}"
+set size of object text of b to ${bp.size}
+end tell
+end tell
+end tell`);
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set color of object text of last text item to {${c16(bodyPreset.color).slice(1,-1)}}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(bp.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
           }
 
-          // Body text
+          // ── BODY TEXT ──
           if (slide.body) {
-            const bodyPreset = preset.body;
-            const bodyY = slide.subtitle ? 200 : 160;
+            const bp = preset.body;
+            const bodyY = hasHeader
+              ? (slide.subtitle ? contentStartY + 55 : contentStartY + 20)
+              : (slide.subtitle ? 200 : 160);
+            const bodyX = hasHeader ? 40 : 80;
+            const bodyW = hasHeader ? 944 : 864;
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set bt to make new text item with properties {object text:"${escAS(slide.body)}", position:{80, ${bodyY}}, width:864, height:400}
-                  set font of object text of bt to "${bodyPreset.font}"
-                  set size of object text of bt to ${bodyPreset.size}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set bt to make new text item with properties {object text:"${escAS(slide.body)}", position:{${bodyX}, ${bodyY}}, width:${bodyW}, height:420}
+set font of object text of bt to "${bp.font}"
+set size of object text of bt to ${bp.size}
+end tell
+end tell
+end tell`);
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set color of object text of last text item to {${c16(bodyPreset.color).slice(1,-1)}}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(bp.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
           }
 
-          // Image
+          // ── IMAGE ──
           if (slide.image) {
-            const imgX = layout === "image-full" ? 0 : (layout === "two-column" ? 520 : 600);
-            const imgY = layout === "image-full" ? 0 : 160;
-            const imgW = layout === "image-full" ? 1024 : (layout === "two-column" ? 440 : 350);
-            const imgH = layout === "image-full" ? 768 : 350;
+            const imgX = layout === "image-full" ? 0 : (layout === "two-column" ? 520 : 580);
+            const imgY = layout === "image-full" ? 0 : contentStartY;
+            const imgW = layout === "image-full" ? 1024 : (layout === "two-column" ? 440 : 380);
+            const imgH = layout === "image-full" ? 768 : 400;
             osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set img to make new image with properties {file:POSIX file "${escAS(slide.image)}", position:{${imgX}, ${imgY}}, width:${imgW}, height:${imgH}}
-                end tell
-              end tell
-            end tell`);
+tell front document
+tell ${sr}
+set img to make new image with properties {file:POSIX file "${escAS(slide.image)}", position:{${imgX}, ${imgY}}, width:${imgW}, height:${imgH}}
+end tell
+end tell
+end tell`);
           }
 
-          // Transition
+          // ── BOTTOM STRIPE (DARPA style) ──
+          if (preset.bottomStripe && layout !== "image-full") {
+            osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set stripe to make new shape with properties {position:{0, 740}, width:1024, height:28}
+set object text of stripe to ""
+end tell
+end tell
+end tell`);
+          }
+
+          // ── TRANSITION ──
           try {
             osa(`tell application "${APP.keynote}"
-              tell front document
-                set transition properties of ${slideRef} to {transition effect:${preset.transition}, transition duration:1.0}
-              end tell
-            end tell`);
+tell front document
+set transition properties of ${sr} to {transition effect:${preset.transition}, transition duration:1.0}
+end tell
+end tell`);
           } catch {}
-
-          // Slide number in bottom right (except title slides)
-          if (layout !== "title" && layout !== "image-full") {
-            osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set sn to make new text item with properties {object text:"${i + 1}", position:{940, 710}, width:60, height:30}
-                  set font of object text of sn to "${preset.body.font}"
-                  set size of object text of sn to 12
-                end tell
-              end tell
-            end tell`);
-            osa(`tell application "${APP.keynote}"
-              tell front document
-                tell ${slideRef}
-                  set color of object text of last text item to {${c16(preset.subtitle.color).slice(1,-1)}}
-                end tell
-              end tell
-            end tell`);
-          }
         }
 
-        // Save if path provided
         if (args.savePath) {
           osa(`tell application "${APP.keynote}"
-            save front document in POSIX file "${escAS(args.savePath)}"
-          end tell`);
+save front document in POSIX file "${escAS(args.savePath)}"
+end tell`);
         }
 
         return ok(`Built ${args.slides.length}-slide ${args.preset} presentation`);
+      }
+
+      case "keynote_darpa_submission": {
+        const preset = PRESETS.darpa;
+        const co = args.company;
+        const qc = args.quadChart;
+        const hBarH = preset.headerBarHeight;
+
+        // Auto-derive solution overview from quad chart if not provided
+        const solutionText = args.solutionOverview || qc.advancing;
+        const whiteSpaceText = args.whiteSpace ||
+          `Today's cybersecurity stops at detection. ${qc.problem.split(".")[0]}. ${co.programName} fills this gap: ${qc.advancing.split(".").slice(0, 2).join(".")}. ${qc.market.split(".")[0]}.`;
+
+        osa(`tell application "${APP.keynote}"
+activate
+set newDoc to make new document with properties {document theme:theme "White"}
+end tell`);
+
+        // Helper to add a slide
+        function addSlide(slideNum) {
+          if (slideNum > 1) {
+            osa(`tell application "${APP.keynote}"
+tell front document
+make new slide at end with properties {base layout:slide layout "Blank"}
+end tell
+end tell`);
+          } else {
+            try {
+              osa(`tell application "${APP.keynote}"
+tell front document
+set base layout of slide 1 to slide layout "Blank"
+end tell
+end tell`);
+            } catch {}
+          }
+          return slideNum === 1 ? "slide 1" : "last slide";
+        }
+
+        function addHeaderBar(sr, titleText) {
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set hbar to make new shape with properties {position:{0, 0}, width:1024, height:${hBarH}}
+set object text of hbar to ""
+end tell
+end tell
+end tell`);
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set t to make new text item with properties {object text:"${escAS(titleText)}", position:{40, 18}, width:944, height:55}
+set font of object text of t to "${preset.title.font}"
+set size of object text of t to ${preset.title.size}
+end tell
+end tell
+end tell`);
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(preset.title.color).slice(1,-1)}}
+end tell
+end tell
+end tell`);
+        }
+
+        function addBottomStripe(sr) {
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set stripe to make new shape with properties {position:{0, 740}, width:1024, height:28}
+set object text of stripe to ""
+end tell
+end tell
+end tell`);
+        }
+
+        function addText(sr, text, x, y, w, h, font, size, colorStr) {
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set t to make new text item with properties {object text:"${escAS(text)}", position:{${x}, ${y}}, width:${w}, height:${h}}
+set font of object text of t to "${font}"
+set size of object text of t to ${size}
+end tell
+end tell
+end tell`);
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set color of object text of last text item to {${c16(colorStr).slice(1,-1)}}
+end tell
+end tell
+end tell`);
+        }
+
+        function addBox(sr, x, y, w, h) {
+          osa(`tell application "${APP.keynote}"
+tell front document
+tell ${sr}
+set bx to make new shape with properties {position:{${x}, ${y}}, width:${w}, height:${h}}
+set object text of bx to ""
+end tell
+end tell
+end tell`);
+        }
+
+        // ═══ SLIDE 1: SUBMISSION INFO ═══
+        let sr = addSlide(1);
+        addHeaderBar(sr, "ERIS SUBMISSION INFORMATION");
+        addText(sr, `${co.programName}\\n${co.name}`, 40, hBarH + 30, 500, 70,
+          preset.subtitle.font, 28, preset.subtitle.color);
+
+        let infoLines = [];
+        if (co.address) infoLines.push(`Address: ${co.address}`);
+        if (co.uei) infoLines.push(`UEI: ${co.uei}`);
+        infoLines.push(`POC: ${co.poc}`);
+        infoLines.push(`Email: ${co.email}`);
+        if (co.phone) infoLines.push(`Phone: ${co.phone}`);
+        const infoText = infoLines.map(l => "•  " + l).join("\\n");
+        addText(sr, infoText, 40, hBarH + 120, 700, infoLines.length * 35,
+          preset.body.font, preset.body.size, preset.body.color);
+        addBottomStripe(sr);
+
+        // ═══ SLIDE 2: COMPANY INTRODUCTION ═══
+        sr = addSlide(2);
+        addHeaderBar(sr, "COMPANY INTRODUCTION");
+        addText(sr, args.introduction, 40, hBarH + 15, 620, 580,
+          preset.body.font, preset.body.size, preset.body.color);
+        addBottomStripe(sr);
+
+        // ═══ SLIDE 3: QUAD CHART ═══
+        sr = addSlide(3);
+        addHeaderBar(sr, "ERIS SUBMISSION CRITERIA QUAD CHART");
+
+        // 4 teal boxes in 2x2 grid
+        const boxW = 460;
+        const boxH = 280;
+        const boxX1 = 30;
+        const boxX2 = 534;
+        const boxY1 = hBarH + 15;
+        const boxY2 = hBarH + 15 + boxH + 20;
+        const boxColor = preset.accent;
+
+        // Top-left: Problem
+        addBox(sr, boxX1, boxY1, boxW, boxH);
+        addText(sr, "Defining the Problem & Current\\nState of the Art", boxX1 + 15, boxY1 + 10, boxW - 30, 50,
+          "Helvetica Neue Bold", 14, "{255, 255, 255}");
+        addText(sr, qc.problem, boxX1 + 15, boxY1 + 60, boxW - 30, boxH - 75,
+          "Helvetica Neue", 11, "{220, 230, 240}");
+
+        // Top-right: Advancing
+        addBox(sr, boxX2, boxY1, boxW, boxH);
+        addText(sr, "Advancing the State of the Art", boxX2 + 15, boxY1 + 10, boxW - 30, 35,
+          "Helvetica Neue Bold", 14, "{255, 255, 255}");
+        addText(sr, qc.advancing, boxX2 + 15, boxY1 + 50, boxW - 30, boxH - 65,
+          "Helvetica Neue", 11, "{220, 230, 240}");
+
+        // Bottom-left: Team
+        addBox(sr, boxX1, boxY2, boxW, boxH);
+        addText(sr, "Team Capability (Key Personnel\\nVision, Expertise, and Experience)", boxX1 + 15, boxY2 + 10, boxW - 30, 50,
+          "Helvetica Neue Bold", 14, "{255, 255, 255}");
+        addText(sr, qc.team, boxX1 + 15, boxY2 + 60, boxW - 30, boxH - 75,
+          "Helvetica Neue", 11, "{220, 230, 240}");
+
+        // Bottom-right: Market
+        addBox(sr, boxX2, boxY2, boxW, boxH);
+        addText(sr, "Defense and/or Commercial Market\\nUse Case/Impact", boxX2 + 15, boxY2 + 10, boxW - 30, 50,
+          "Helvetica Neue Bold", 14, "{255, 255, 255}");
+        addText(sr, qc.market, boxX2 + 15, boxY2 + 50, boxW - 30, boxH - 65,
+          "Helvetica Neue", 11, "{220, 230, 240}");
+
+        addBottomStripe(sr);
+
+        // ═══ SLIDE 4: SOLUTION OVERVIEW & WHITE SPACE ═══
+        sr = addSlide(4);
+        addHeaderBar(sr, "SOLUTION OVERVIEW & DARPA WHITE SPACE CHART");
+
+        // Left column: What We Are Doing
+        addText(sr, "WHAT WE ARE DOING", 30, hBarH + 10, 470, 30,
+          "Helvetica Neue Bold", 16, preset.accent);
+        addText(sr, `${co.programName}: ${solutionText}`, 30, hBarH + 45, 470, 280,
+          preset.body.font, 13, preset.body.color);
+
+        // Right column: White Space
+        addText(sr, `DARPA "WHITE SPACE" CHART`, 534, hBarH + 10, 460, 30,
+          "Helvetica Neue Bold", 16, "{210, 75, 55}");
+        addText(sr, whiteSpaceText, 534, hBarH + 45, 460, 280,
+          preset.body.font, 13, preset.body.color);
+
+        // Bottom left: Program description derived from quad chart
+        addText(sr, `${co.programName} — Key Differentiators`, 30, hBarH + 340, 470, 25,
+          "Helvetica Neue Bold", 14, preset.accent);
+        const diffText = `${qc.advancing.split(".").slice(0, 3).join(".")}. ${qc.market.split(".")[0]}.`;
+        addText(sr, diffText, 30, hBarH + 370, 470, 250,
+          preset.body.font, 12, preset.body.color);
+
+        // Bottom right: State of the art context
+        addText(sr, `${co.programName} State of the Art`, 534, hBarH + 340, 460, 25,
+          "Helvetica Neue Bold", 14, "{210, 75, 55}");
+        const sotaText = `${qc.problem.split(".").slice(0, 3).join(".")}. ${co.programName} solves this: ${qc.advancing.split(".")[0]}.`;
+        addText(sr, sotaText, 534, hBarH + 370, 460, 250,
+          preset.body.font, 12, preset.body.color);
+
+        addBottomStripe(sr);
+
+        // Set transitions
+        for (let s = 1; s <= 4; s++) {
+          try {
+            osa(`tell application "${APP.keynote}"
+tell front document
+set transition properties of slide ${s} to {transition effect:dissolve, transition duration:1.0}
+end tell
+end tell`);
+          } catch {}
+        }
+
+        if (args.savePath) {
+          osa(`tell application "${APP.keynote}"
+save front document in POSIX file "${escAS(args.savePath)}"
+end tell`);
+        }
+
+        return ok(`Built complete DARPA ERIS submission: 4 slides (Info, Introduction, Quad Chart, Solution/White Space). Saved to ${args.savePath || "unsaved"}`);
       }
 
       case "keynote_create": {
