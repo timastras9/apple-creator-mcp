@@ -149,6 +149,13 @@ else
   fi
 fi
 
+# ─── App Automation Permissions ───
+echo ""
+echo -e "${CYAN}${BOLD}Warming up app permissions...${NC}"
+echo -e "  macOS will ask you to authorize each app — click OK on each dialog."
+echo ""
+bash "$INSTALL_DIR/setup-permissions.sh"
+
 # ─── Done ───
 echo ""
 echo -e "${GREEN}${BOLD}╔═══════════════════════════════════════════╗${NC}"
