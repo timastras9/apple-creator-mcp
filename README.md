@@ -123,9 +123,26 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Accessibility
+## Accessibility Setup
 
-Keynote, Pages, Numbers, FCP, and Logic control requires macOS Accessibility permissions for `/usr/bin/osascript` and `node`. The installer walks you through this automatically.
+Keynote, Pages, Numbers, FCP, and Logic control requires macOS Accessibility permissions. The installer walks you through this automatically, but if you need to do it manually:
+
+1. Open **System Settings → Privacy & Security → Accessibility**
+2. Click the **+** button at the bottom of the list
+3. Press **Cmd+Shift+G** to bring up "Go to Folder"
+4. Type `/usr/bin/osascript` and hit Enter
+5. Select **osascript** and click **Open**
+6. Make sure the toggle next to it is **ON**
+
+Then repeat for Node.js:
+
+1. Click **+** again
+2. Press **Cmd+Shift+G**
+3. Type the path to your node binary (run `which node` to find it, e.g. `/opt/homebrew/bin/node`)
+4. Select **node** and click **Open**
+5. Make sure the toggle is **ON**
+
+> Without Accessibility permissions, the video/audio/image tools still work — only the app control tools (Keynote, Pages, Numbers, FCP, Logic) require it.
 
 ## Uninstall
 
