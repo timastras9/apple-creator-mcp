@@ -32,35 +32,116 @@ const APP = {
 };
 
 function osa(script) {
-  return execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, {
-    encoding: "utf-8",
-    timeout: 30000,
-  }).trim();
-}
-
-function osaMulti(script) {
-  const escaped = script.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  return execSync(`osascript -e "${escaped}"`, {
-    encoding: "utf-8",
-    timeout: 30000,
-  }).trim();
+  const tmpFile = join(WORK_DIR, `_osa_${Date.now()}_${Math.random().toString(36).slice(2)}.scpt`);
+  writeFileSync(tmpFile, script);
+  try {
+    return execSync(`osascript "${tmpFile}"`, {
+      encoding: "utf-8",
+      timeout: 30000,
+    }).trim();
+  } finally {
+    try { execSync(`rm -f "${tmpFile}"`); } catch {}
+  }
 }
 
 function escAS(str) {
   return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+// Keynote uses 16-bit color (0-65535), convert from 8-bit RGB string "{R, G, B}"
+function c16(colorStr) {
+  return colorStr.replace(/\d+/g, n => Math.round(parseInt(n) * 257));
+}
+
+// ═══ PRO PRESETS ═══
+
+const PRESETS = {
+  "darpa": {
+    bg: "{0, 8, 20}",
+    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
+    subtitle: { color: "{100, 180, 255}", font: "Helvetica Neue Light", size: 24 },
+    body: { color: "{200, 210, 225}", font: "Helvetica Neue", size: 20 },
+    accent: "{0, 120, 255}",
+    accentAlt: "{255, 60, 60}",
+    transition: "dissolve",
+  },
+  "nsi": {
+    bg: "{10, 12, 30}",
+    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
+    subtitle: { color: "{138, 92, 246}", font: "Helvetica Neue Light", size: 24 },
+    body: { color: "{190, 195, 220}", font: "Helvetica Neue", size: 20 },
+    accent: "{138, 92, 246}",
+    accentAlt: "{0, 210, 180}",
+    transition: "magic move",
+  },
+  "intel": {
+    bg: "{15, 15, 15}",
+    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
+    subtitle: { color: "{0, 200, 150}", font: "Helvetica Neue Medium", size: 24 },
+    body: { color: "{180, 185, 195}", font: "Helvetica Neue", size: 20 },
+    accent: "{0, 200, 150}",
+    accentAlt: "{255, 180, 0}",
+    transition: "push",
+  },
+  "executive": {
+    bg: "{25, 30, 45}",
+    title: { color: "{255, 255, 255}", font: "Georgia Bold", size: 42 },
+    subtitle: { color: "{200, 175, 120}", font: "Georgia", size: 22 },
+    body: { color: "{200, 205, 215}", font: "Helvetica Neue", size: 20 },
+    accent: "{200, 175, 120}",
+    accentAlt: "{100, 130, 200}",
+    transition: "fade through color",
+  },
+  "military": {
+    bg: "{20, 25, 15}",
+    title: { color: "{255, 255, 255}", font: "Helvetica Neue Bold", size: 44 },
+    subtitle: { color: "{140, 180, 80}", font: "Helvetica Neue Medium", size: 24 },
+    body: { color: "{190, 200, 180}", font: "Helvetica Neue", size: 20 },
+    accent: "{140, 180, 80}",
+    accentAlt: "{220, 180, 60}",
+    transition: "push",
+  },
+};
+
 // ═══ TOOL DEFINITIONS ═══
 
 const tools = [
   // ── KEYNOTE ──
   {
-    name: "keynote_create",
-    description: "Create a new Keynote presentation. Optionally specify a theme.",
+    name: "keynote_build_deck",
+    description: "Create a complete professional presentation in one call. Builds a fully styled deck with dark backgrounds, colored text, transitions, and consistent branding. Use this instead of creating slides one at a time. ALWAYS use this for presentations — it produces CIA/NSA briefing quality output.",
     inputSchema: {
       type: "object",
       properties: {
-        theme: { type: "string", description: "Theme name (e.g. 'White', 'Black', 'Gradient'). Default: White" },
+        preset: { type: "string", enum: ["darpa", "nsi", "intel", "executive", "military"], description: "Visual preset. darpa=blue/red on black, nsi=purple/cyan on deep navy, intel=green/gold on black, executive=gold/blue on dark navy, military=olive/yellow on dark green" },
+        slides: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              subtitle: { type: "string" },
+              bullets: { type: "array", items: { type: "string" }, description: "Bullet points" },
+              body: { type: "string", description: "Paragraph text (use bullets OR body, not both)" },
+              image: { type: "string", description: "Full path to image file" },
+              layout: { type: "string", enum: ["title", "section", "content", "two-column", "image-full", "quote"], description: "Slide layout type (default: content)" },
+            },
+            required: ["title"],
+          },
+          description: "Array of slide objects",
+        },
+        savePath: { type: "string", description: "Path to save .key file (optional)" },
+      },
+      required: ["preset", "slides"],
+    },
+  },
+  {
+    name: "keynote_create",
+    description: "Create a new blank Keynote presentation. For professional presentations, use keynote_build_deck instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        theme: { type: "string", description: "Theme name (e.g. 'White', 'Black', 'Gradient'). Default: Black" },
         title: { type: "string", description: "Title text for the first slide" },
       },
     },
@@ -76,13 +157,14 @@ const tools = [
   },
   {
     name: "keynote_add_slide",
-    description: "Add a new slide to the current Keynote presentation.",
+    description: "Add a styled slide to the current presentation. ALWAYS set colors and fonts — never leave defaults. Use dark backgrounds with light text for professional look.",
     inputSchema: {
       type: "object",
       properties: {
-        layout: { type: "string", description: "Slide layout name (e.g. 'Title & Subtitle', 'Blank', 'Title - Center')" },
+        layout: { type: "string", description: "Slide layout name (e.g. 'Blank', 'Title - Center')" },
         title: { type: "string", description: "Title text" },
         body: { type: "string", description: "Body text" },
+        transition: { type: "string", enum: ["dissolve", "push", "magic move", "fade through color", "wipe", "swap", "move in", "reveal"], description: "Transition effect (default dissolve)" },
       },
     },
   },
@@ -103,7 +185,7 @@ const tools = [
   },
   {
     name: "keynote_add_text",
-    description: "Add a text box to the current slide in Keynote.",
+    description: "Add a styled text box to the current slide. ALWAYS specify font, fontSize, and color for professional output.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,9 +194,57 @@ const tools = [
         y: { type: "number", description: "Y position in points (default 100)" },
         width: { type: "number", description: "Width in points (default 600)" },
         height: { type: "number", description: "Height in points (default 200)" },
-        fontSize: { type: "number", description: "Font size in points (default 24)" },
+        fontSize: { type: "number", description: "Font size (default 24)" },
+        font: { type: "string", description: "Font name (e.g. 'Helvetica Neue Bold', 'Georgia')" },
+        color: { type: "string", description: "RGB color as {R, G, B} (e.g. '{255, 255, 255}' for white)" },
       },
       required: ["text"],
+    },
+  },
+  {
+    name: "keynote_add_shape",
+    description: "Add a colored shape to the current slide. Use for accent bars, dividers, backgrounds, and visual elements.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        shape: { type: "string", enum: ["rectangle", "rounded rectangle", "circle", "triangle", "diamond", "arrow", "star", "line"], description: "Shape type" },
+        x: { type: "number", description: "X position" },
+        y: { type: "number", description: "Y position" },
+        width: { type: "number", description: "Width" },
+        height: { type: "number", description: "Height" },
+        fillColor: { type: "string", description: "RGB fill color as {R, G, B}" },
+        opacity: { type: "number", description: "Opacity 0-100 (default 100)" },
+        rotation: { type: "number", description: "Rotation in degrees" },
+        text: { type: "string", description: "Text inside the shape" },
+        textColor: { type: "string", description: "Text color as {R, G, B}" },
+        textSize: { type: "number", description: "Text size in points" },
+      },
+      required: ["shape", "x", "y", "width", "height"],
+    },
+  },
+  {
+    name: "keynote_set_slide_transition",
+    description: "Set the transition effect for a specific slide.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slideNumber: { type: "number", description: "Slide number" },
+        effect: { type: "string", enum: ["dissolve", "push", "magic move", "fade through color", "wipe", "swap", "move in", "reveal", "cube", "flip", "mosaic", "confetti", "sparkle", "swing"], description: "Transition effect" },
+        duration: { type: "number", description: "Duration in seconds (default 1.0)" },
+      },
+      required: ["slideNumber", "effect"],
+    },
+  },
+  {
+    name: "keynote_set_presenter_notes",
+    description: "Set presenter notes for a slide. Essential for professional briefings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slideNumber: { type: "number", description: "Slide number" },
+        notes: { type: "string", description: "Presenter notes text" },
+      },
+      required: ["slideNumber", "notes"],
     },
   },
   {
@@ -131,7 +261,7 @@ const tools = [
   },
   {
     name: "keynote_play",
-    description: "Start playing the Keynote slideshow from the beginning or a specific slide.",
+    description: "Start playing the Keynote slideshow.",
     inputSchema: {
       type: "object",
       properties: {
@@ -146,14 +276,46 @@ const tools = [
   },
   {
     name: "keynote_get_info",
-    description: "Get info about the current Keynote presentation — slide count, current slide, document name.",
+    description: "Get info about the current Keynote presentation.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "keynote_list_presets",
+    description: "List available professional presentation presets with their color schemes.",
     inputSchema: { type: "object", properties: {} },
   },
 
   // ── PAGES ──
   {
+    name: "pages_build_document",
+    description: "Create a complete professional document in one call. Produces executive-quality output suitable for DARPA, DoD, or corporate briefings. Use this instead of building documents piece by piece.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Document title" },
+        subtitle: { type: "string", description: "Subtitle or classification (e.g. 'UNCLASSIFIED', 'NSI Corp Confidential')" },
+        sections: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              heading: { type: "string", description: "Section heading" },
+              body: { type: "string", description: "Section body text. Use \\n for paragraphs." },
+              bullets: { type: "array", items: { type: "string" }, description: "Bullet points" },
+            },
+            required: ["heading"],
+          },
+          description: "Document sections",
+        },
+        savePath: { type: "string", description: "Path to save file" },
+        exportPDF: { type: "string", description: "Path to also export as PDF" },
+      },
+      required: ["title", "sections"],
+    },
+  },
+  {
     name: "pages_create",
-    description: "Create a new Pages document.",
+    description: "Create a new Pages document. For professional documents, use pages_build_document instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -172,13 +334,13 @@ const tools = [
   },
   {
     name: "pages_add_text",
-    description: "Add text to the current Pages document.",
+    description: "Add formatted text to the current Pages document. ALWAYS specify font and size for professional output.",
     inputSchema: {
       type: "object",
       properties: {
         text: { type: "string", description: "Text to add" },
         fontSize: { type: "number", description: "Font size (default 12)" },
-        font: { type: "string", description: "Font name (default Helvetica)" },
+        font: { type: "string", description: "Font name (e.g. 'Helvetica Neue', 'Georgia', 'Times New Roman')" },
         bold: { type: "boolean", description: "Bold text" },
       },
       required: ["text"],
@@ -561,7 +723,7 @@ const tools = [
 // ═══ MCP SERVER ═══
 
 const server = new Server(
-  { name: "apple-creator-mcp", version: "1.0.0" },
+  { name: "apple-creator-mcp", version: "2.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -575,8 +737,198 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // ═══ KEYNOTE ═══
 
+      case "keynote_build_deck": {
+        const preset = PRESETS[args.preset] || PRESETS.darpa;
+
+        // Create presentation with Black theme (dark base)
+        osa(`tell application "${APP.keynote}"
+          activate
+          set newDoc to make new document with properties {document theme:theme "Black"}
+        end tell`);
+
+        // Build each slide
+        for (let i = 0; i < args.slides.length; i++) {
+          const slide = args.slides[i];
+          const layout = slide.layout || "content";
+          const isFirst = i === 0;
+
+          if (!isFirst) {
+            osa(`tell application "${APP.keynote}"
+tell front document
+  make new slide at end with properties {base layout:slide layout "Blank"}
+end tell
+end tell`);
+          } else {
+            try {
+              osa(`tell application "${APP.keynote}"
+tell front document
+  set base layout of slide 1 to slide layout "Blank"
+end tell
+end tell`);
+            } catch {}
+          }
+
+          const slideRef = isFirst ? "slide 1" : "last slide";
+
+          // Accent bar at top
+          if (layout !== "image-full") {
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set bar to make new shape with properties {position:{0, 0}, width:1024, height:4}
+                  set object text of bar to ""
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Title
+          if (slide.title) {
+            const titlePreset = preset.title;
+            const titleY = layout === "title" ? 220 : (layout === "section" ? 250 : 60);
+            const titleSize = layout === "title" ? 56 : (layout === "section" ? 48 : titlePreset.size);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set t to make new text item with properties {object text:"${escAS(slide.title)}", position:{80, ${titleY}}, width:864, height:80}
+                  set font of object text of t to "${titlePreset.font}"
+                  set size of object text of t to ${titleSize}
+                end tell
+              end tell
+            end tell`);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set color of object text of last text item to {${c16(titlePreset.color).slice(1,-1)}}
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Subtitle
+          if (slide.subtitle) {
+            const subPreset = preset.subtitle;
+            const subY = layout === "title" ? 300 : (layout === "section" ? 320 : 140);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set s to make new text item with properties {object text:"${escAS(slide.subtitle)}", position:{80, ${subY}}, width:864, height:50}
+                  set font of object text of s to "${subPreset.font}"
+                  set size of object text of s to ${subPreset.size}
+                end tell
+              end tell
+            end tell`);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set color of object text of last text item to {${c16(subPreset.color).slice(1,-1)}}
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Bullets
+          if (slide.bullets && slide.bullets.length > 0) {
+            const bodyPreset = preset.body;
+            const bulletText = slide.bullets.map(b => "  ▸  " + b).join("\\n");
+            const bulletY = slide.subtitle ? 200 : 160;
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set b to make new text item with properties {object text:"${escAS(bulletText)}", position:{80, ${bulletY}}, width:864, height:${Math.min(slide.bullets.length * 45 + 30, 480)}}
+                  set font of object text of b to "${bodyPreset.font}"
+                  set size of object text of b to ${bodyPreset.size}
+                end tell
+              end tell
+            end tell`);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set color of object text of last text item to {${c16(bodyPreset.color).slice(1,-1)}}
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Body text
+          if (slide.body) {
+            const bodyPreset = preset.body;
+            const bodyY = slide.subtitle ? 200 : 160;
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set bt to make new text item with properties {object text:"${escAS(slide.body)}", position:{80, ${bodyY}}, width:864, height:400}
+                  set font of object text of bt to "${bodyPreset.font}"
+                  set size of object text of bt to ${bodyPreset.size}
+                end tell
+              end tell
+            end tell`);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set color of object text of last text item to {${c16(bodyPreset.color).slice(1,-1)}}
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Image
+          if (slide.image) {
+            const imgX = layout === "image-full" ? 0 : (layout === "two-column" ? 520 : 600);
+            const imgY = layout === "image-full" ? 0 : 160;
+            const imgW = layout === "image-full" ? 1024 : (layout === "two-column" ? 440 : 350);
+            const imgH = layout === "image-full" ? 768 : 350;
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set img to make new image with properties {file:POSIX file "${escAS(slide.image)}", position:{${imgX}, ${imgY}}, width:${imgW}, height:${imgH}}
+                end tell
+              end tell
+            end tell`);
+          }
+
+          // Transition
+          try {
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                set transition properties of ${slideRef} to {transition effect:${preset.transition}, transition duration:1.0}
+              end tell
+            end tell`);
+          } catch {}
+
+          // Slide number in bottom right (except title slides)
+          if (layout !== "title" && layout !== "image-full") {
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set sn to make new text item with properties {object text:"${i + 1}", position:{940, 710}, width:60, height:30}
+                  set font of object text of sn to "${preset.body.font}"
+                  set size of object text of sn to 12
+                end tell
+              end tell
+            end tell`);
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                tell ${slideRef}
+                  set color of object text of last text item to {${c16(preset.subtitle.color).slice(1,-1)}}
+                end tell
+              end tell
+            end tell`);
+          }
+        }
+
+        // Save if path provided
+        if (args.savePath) {
+          osa(`tell application "${APP.keynote}"
+            save front document in POSIX file "${escAS(args.savePath)}"
+          end tell`);
+        }
+
+        return ok(`Built ${args.slides.length}-slide ${args.preset} presentation`);
+      }
+
       case "keynote_create": {
-        const theme = args.theme || "White";
+        const theme = args.theme || "Black";
         osa(`tell application "${APP.keynote}"
           activate
           set newDoc to make new document with properties {document theme:theme "${theme}"}
@@ -633,6 +985,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             end tell
           end tell`);
         }
+        // Set transition
+        if (args.transition) {
+          try {
+            osa(`tell application "${APP.keynote}"
+              tell front document
+                set transition properties of last slide to {transition effect:${args.transition}, transition duration:1.0}
+              end tell
+            end tell`);
+          } catch {}
+        }
         return ok(`Added slide${args.title ? `: "${args.title}"` : ""}`);
       }
 
@@ -657,15 +1019,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const w = args.width || 600;
         const h = args.height || 200;
         const sz = args.fontSize || 24;
+        const font = args.font || "Helvetica Neue";
+        const color = args.color || "{255, 255, 255}";
         osa(`tell application "${APP.keynote}"
           tell front document
             tell current slide
               set txt to make new text item with properties {object text:"${escAS(args.text)}", position:{${x}, ${y}}, width:${w}, height:${h}}
+              set font of object text of txt to "${escAS(font)}"
               set size of object text of txt to ${sz}
             end tell
           end tell
         end tell`);
-        return ok(`Added text box to current slide`);
+        osa(`tell application "${APP.keynote}"
+          tell front document
+            tell current slide
+              set color of object text of last text item to {${c16(color).replace(/[{}]/g, "")}}
+            end tell
+          end tell
+        end tell`);
+        return ok(`Added styled text to current slide`);
+      }
+
+      case "keynote_add_shape": {
+        const fillColor = args.fillColor || "{100, 100, 100}";
+        const opacity = args.opacity || 100;
+        osa(`tell application "${APP.keynote}"
+          tell front document
+            tell current slide
+              set shp to make new shape with properties {position:{${args.x}, ${args.y}}, width:${args.width}, height:${args.height}}
+              set opacity of shp to ${opacity}
+            end tell
+          end tell
+        end tell`);
+        if (args.text) {
+          const textColor = args.textColor || "{255, 255, 255}";
+          const textSize = args.textSize || 18;
+          osa(`tell application "${APP.keynote}"
+            tell front document
+              tell current slide
+                tell last shape
+                  set object text to "${escAS(args.text)}"
+                  tell object text
+                    set color to {${c16(textColor).replace(/[{}]/g, "")}}
+                    set size to ${textSize}
+                  end tell
+                end tell
+              end tell
+            end tell
+          end tell`);
+        }
+        if (args.rotation) {
+          osa(`tell application "${APP.keynote}"
+            tell front document
+              tell current slide
+                set rotation of last shape to ${args.rotation}
+              end tell
+            end tell
+          end tell`);
+        }
+        return ok(`Added ${args.shape} shape`);
+      }
+
+      case "keynote_set_slide_transition": {
+        const dur = args.duration || 1.0;
+        osa(`tell application "${APP.keynote}"
+          tell front document
+            set transition properties of slide ${args.slideNumber} to {transition effect:${args.effect}, transition duration:${dur}}
+          end tell
+        end tell`);
+        return ok(`Set ${args.effect} transition on slide ${args.slideNumber}`);
+      }
+
+      case "keynote_set_presenter_notes": {
+        osa(`tell application "${APP.keynote}"
+          tell front document
+            set presenter notes of slide ${args.slideNumber} to "${escAS(args.notes)}"
+          end tell
+        end tell`);
+        return ok(`Set presenter notes on slide ${args.slideNumber}`);
       }
 
       case "keynote_export": {
@@ -706,7 +1137,90 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return ok(JSON.stringify({ name: docName, slides: parseInt(slideCount), currentSlide: parseInt(currentSlide) }));
       }
 
+      case "keynote_list_presets": {
+        const list = Object.entries(PRESETS).map(([name, p]) => ({
+          name,
+          background: p.bg,
+          titleColor: p.title.color,
+          accentColor: p.accent,
+          transition: p.transition,
+        }));
+        return ok(JSON.stringify(list, null, 2));
+      }
+
       // ═══ PAGES ═══
+
+      case "pages_build_document": {
+        osa(`tell application "${APP.pages}"
+          activate
+          make new document
+        end tell`);
+
+        let fullText = "";
+
+        // Title
+        fullText += args.title + "\\n";
+        if (args.subtitle) {
+          fullText += args.subtitle + "\\n";
+        }
+        fullText += "\\n";
+
+        // Sections
+        for (const section of args.sections) {
+          fullText += section.heading + "\\n\\n";
+          if (section.body) {
+            fullText += section.body + "\\n\\n";
+          }
+          if (section.bullets && section.bullets.length > 0) {
+            for (const bullet of section.bullets) {
+              fullText += "  •  " + bullet + "\\n";
+            }
+            fullText += "\\n";
+          }
+        }
+
+        osa(`tell application "${APP.pages}"
+          tell front document
+            set body text to "${escAS(fullText)}"
+          end tell
+        end tell`);
+
+        // Style the title
+        osa(`tell application "${APP.pages}"
+          tell front document
+            tell body text
+              set font of paragraph 1 to "Helvetica Neue Bold"
+              set size of paragraph 1 to 28
+            end tell
+          end tell
+        end tell`);
+
+        // Style subtitle if present
+        if (args.subtitle) {
+          osa(`tell application "${APP.pages}"
+            tell front document
+              tell body text
+                set font of paragraph 2 to "Helvetica Neue Light"
+                set size of paragraph 2 to 16
+                set color of paragraph 2 to {30840, 30840, 35980}
+              end tell
+            end tell
+          end tell`);
+        }
+
+        if (args.savePath) {
+          osa(`tell application "${APP.pages}"
+            save front document in POSIX file "${escAS(args.savePath)}"
+          end tell`);
+        }
+        if (args.exportPDF) {
+          osa(`tell application "${APP.pages}"
+            export front document to POSIX file "${escAS(args.exportPDF)}" as PDF
+          end tell`);
+        }
+
+        return ok(`Built ${args.sections.length}-section document: "${args.title}"`);
+      }
 
       case "pages_create": {
         osa(`tell application "${APP.pages}"

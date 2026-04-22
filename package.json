@@ -1,6 +1,6 @@
 {
   "name": "apple-creator-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "MCP server for Apple Creator Studio — Keynote, Pages, Numbers, Final Cut Pro, Logic Pro, Motion, Compressor + media tools",
   "main": "server.js",
   "type": "module",
